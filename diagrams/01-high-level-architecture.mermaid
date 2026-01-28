@@ -63,7 +63,7 @@ flowchart TB
     L_Producer -->|Send Message| SQS
     SQS -->|Trigger| L_Consumer
     L_Consumer -->|pymysql| RDS
-    L_Consumer_ORM -.->|SQLAlchemy ORM<br/>(Manual Invoke)| RDS
+    L_Consumer_ORM -.->|"SQLAlchemy ORM (Manual Invoke)"| RDS
     SQS -->|Failed Messages| DLQ
 
     ECS --> NAT
