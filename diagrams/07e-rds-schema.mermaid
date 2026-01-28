@@ -1,0 +1,12 @@
+%% RDS Database Schema (items table)
+
+erDiagram
+    items {
+        INT id PK "AUTO_INCREMENT"
+        VARCHAR255 name "NOT NULL"
+        TEXT description
+        DECIMAL price "10,2"
+        INT quantity "DEFAULT 0"
+        TIMESTAMP created_at "AUTO"
+        TIMESTAMP updated_at "AUTO"
+    }

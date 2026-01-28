@@ -1,0 +1,48 @@
+%% ECS Cluster Overview
+%% FastAPI with SQLAlchemy ORM and Clean Architecture
+
+flowchart TB
+    subgraph Cluster["ECS Cluster: crud-app-cluster"]
+        subgraph Service["ECS Service: crud-app-api-service<br/>Desired Count: 2 | Launch Type: FARGATE"]
+
+            subgraph Task1["Task 1 (AZ: us-east-1a)"]
+                Container1["Container: crud-app-api<br/>Image: ECR:latest<br/>CPU: 256 | Memory: 512MB<br/>Port: 8000"]
+                Stack1["FastAPI + Uvicorn<br/>SQLAlchemy ORM + aiomysql<br/>Pydantic DTOs"]
+            end
+
+            subgraph Task2["Task 2 (AZ: us-east-1b)"]
+                Container2["Container: crud-app-api<br/>Image: ECR:latest<br/>CPU: 256 | Memory: 512MB<br/>Port: 8000"]
+                Stack2["FastAPI + Uvicorn<br/>SQLAlchemy ORM + aiomysql<br/>Pydantic DTOs"]
+            end
+        end
+
+        AutoScaling["Auto Scaling<br/>Min: 2 | Max: 10<br/>Target CPU: 70%"]
+    end
+
+    subgraph Architecture["Clean Architecture Layers"]
+        Pres["Presentation<br/>(Routes, DTOs, DI)"]
+        Domain["Domain<br/>(ItemService)"]
+        Infra["Infrastructure<br/>(ItemRepository, DatabaseSession)"]
+    end
+
+    subgraph IAM["IAM Roles"]
+        ExecRole["Execution Role<br/>- ECR Pull<br/>- CloudWatch Logs<br/>- SSM GetParameter"]
+        TaskRole["Task Role<br/>- SQS SendMessage"]
+    end
+
+    subgraph External["External Resources"]
+        ECR["ECR Repository<br/>crud-app-api"]
+        SSM["SSM Parameter<br/>/crud-app/db/password"]
+        CW["CloudWatch Logs<br/>/ecs/crud-app-api"]
+    end
+
+    Container1 --> Stack1
+    Container2 --> Stack2
+    Task1 & Task2 --> ExecRole
+    Task1 & Task2 --> TaskRole
+    ExecRole --> ECR
+    ExecRole --> SSM
+    ExecRole --> CW
+    AutoScaling -.->|"Scale based on<br/>CPU utilization"| Service
+
+    Pres --> Domain --> Infra

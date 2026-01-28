@@ -1,0 +1,30 @@
+%% RDS Database Configuration Details
+
+flowchart LR
+    subgraph RDSConfig["RDS Instance Configuration"]
+        subgraph Engine["Engine Settings"]
+            EngineType["Engine: MySQL"]
+            Version["Version: 8.0"]
+            ParamGroup["Parameter Group:<br/>crud-app-mysql-params"]
+        end
+
+        subgraph Instance["Instance Settings"]
+            Class["Class: db.t3.micro<br/>vCPU: 2<br/>Memory: 1 GB"]
+            Storage["Storage: gp3<br/>Allocated: 20 GB<br/>Max: 100 GB<br/>IOPS: 3000"]
+            MultiAZ["Multi-AZ: No<br/>(Single instance)"]
+        end
+
+        subgraph Network["Network Settings"]
+            Subnet["Subnet Group: Public"]
+            Public["Publicly Accessible: Yes"]
+            Port["Port: 3306"]
+            SG["Security Group: rds-sg"]
+        end
+
+        subgraph Backup["Backup & Maintenance"]
+            Retention["Retention: 7 days"]
+            BackupWindow["Backup: 03:00-04:00 UTC"]
+            MaintWindow["Maint: Mon 04:00-05:00"]
+            FinalSnap["Skip Final Snapshot: Yes"]
+        end
+    end

@@ -1,0 +1,32 @@
+%% Lambda SQS Integration
+%% Shows auto-triggered pymysql consumer (sqs-consumer-orm is manual only)
+
+sequenceDiagram
+    participant Producer as sqs-producer Lambda
+    participant SQS as SQS Queue
+    participant Consumer as sqs-consumer Lambda<br/>(pymysql)
+    participant RDS as MySQL Database
+
+    Note over Producer,RDS: Auto-triggered Message Flow (pymysql)
+
+    Producer->>SQS: SendMessage<br/>{name, description, price, quantity}
+
+    Note over SQS: Message in queue<br/>Visibility: 60s<br/>Retention: 24h
+
+    SQS->>Consumer: Event Source Mapping<br/>Triggers (batch up to 10)
+
+    loop For each record in batch
+        Consumer->>Consumer: Parse message.body (JSON)
+        Consumer->>RDS: pymysql: INSERT INTO items (...)
+        alt Success
+            RDS-->>Consumer: OK
+            Note over Consumer: Message auto-deleted
+        else Failure
+            Consumer-->>SQS: Throw error
+            Note over SQS: Retry (up to 3x)
+        end
+    end
+
+    Note over SQS: After 3 failures → DLQ
+
+    Note over Producer,RDS: Alternative: sqs-consumer-orm<br/>Uses SQLAlchemy ORM<br/>Manual invocation only (no event source)

@@ -1,0 +1,39 @@
+%% SQS Queue Overview
+
+flowchart TB
+    subgraph Producers["Message Producers"]
+        ECS["ECS FastAPI<br/>POST /queue"]
+        Lambda_P["Lambda: sqs-producer"]
+    end
+
+    subgraph SQS["Amazon SQS"]
+        subgraph MainQueue["Main Queue: crud-app-create-queue"]
+            Config1["Type: Standard Queue"]
+            Config2["Visibility Timeout: 60s"]
+            Config3["Message Retention: 24 hours"]
+            Config4["Max Message Size: 256 KB"]
+            Config5["Receive Wait Time: 10s (Long Polling)"]
+        end
+
+        subgraph DLQ["Dead Letter Queue: crud-app-create-dlq"]
+            DLQConfig1["Message Retention: 14 days"]
+            DLQConfig2["For failed messages"]
+        end
+
+        Redrive["Redrive Policy<br/>Max Receive Count: 3"]
+    end
+
+    subgraph Consumer["Message Consumer"]
+        Lambda_C["Lambda: sqs-consumer<br/>Batch Size: 10"]
+    end
+
+    subgraph Database["Database"]
+        RDS[("RDS MySQL")]
+    end
+
+    ECS & Lambda_P -->|"SendMessage"| MainQueue
+    MainQueue -->|"Trigger"| Lambda_C
+    Lambda_C -->|"INSERT"| RDS
+    MainQueue -->|"After 3 failures"| DLQ
+    Redrive -.-> MainQueue
+    Redrive -.-> DLQ

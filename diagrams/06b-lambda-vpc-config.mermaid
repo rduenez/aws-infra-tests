@@ -1,0 +1,35 @@
+%% VPC Configuration for Lambda
+
+flowchart TB
+    subgraph VPC["VPC: crud-app-vpc"]
+        subgraph PrivateSubnets["Private Subnets"]
+            subgraph AZ1["us-east-1a"]
+                ENI1["Lambda ENI<br/>10.0.10.x"]
+            end
+            subgraph AZ2["us-east-1b"]
+                ENI2["Lambda ENI<br/>10.0.11.x"]
+            end
+        end
+
+        SG["Security Group: lambda-sg<br/>Outbound: All to 0.0.0.0/0"]
+    end
+
+    subgraph Lambda["VPC-Enabled Lambdas"]
+        L1["create"]
+        L2["read"]
+        L3["update"]
+        L4["delete"]
+        L5["sqs-consumer"]
+    end
+
+    subgraph NonVPC["Non-VPC Lambda"]
+        L6["sqs-producer<br/>(Direct AWS API access)"]
+    end
+
+    Lambda -->|"Attached to"| PrivateSubnets
+    Lambda --> SG
+
+    PrivateSubnets -->|"Outbound via"| NAT["NAT Gateway"]
+    NAT --> Internet["Internet/AWS Services"]
+
+    L6 -->|"Direct"| Internet

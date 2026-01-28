@@ -1,0 +1,55 @@
+%% SQLAlchemy ORM Session Lifecycle
+%% Shows how database sessions are managed in the FastAPI application
+
+sequenceDiagram
+    autonumber
+    participant App as FastAPI Application
+    participant Container as DI Container
+    participant DBSession as DatabaseSession
+    participant Engine as AsyncEngine
+    participant Pool as Connection Pool
+    participant MySQL as MySQL Database
+
+    Note over App,MySQL: Application Startup (Lifespan)
+    App->>+Container: startup()
+    Container->>+DBSession: connect()
+    DBSession->>+Engine: create_async_engine()<br/>pool_size=5, max_overflow=10
+    Engine->>+Pool: Initialize connection pool
+    Pool->>+MySQL: Establish initial connections
+    MySQL-->>-Pool: Connections ready
+    Pool-->>-Engine: Pool initialized
+    Engine-->>-DBSession: Engine ready
+    DBSession-->>-Container: Connected
+    Container-->>-App: Ready to serve requests
+
+    Note over App,MySQL: Request Handling (Per Request)
+    App->>+Container: get_container()
+    Container->>Container: item_service property
+    Container->>+DBSession: session_factory
+    DBSession-->>-Container: async_sessionmaker
+
+    Note over App,MySQL: Repository Operation (e.g., create)
+    Container->>+ItemRepo: ItemRepository(session_factory)
+    ItemRepo->>+DBSession: async with session_factory() as session
+    DBSession->>+Pool: Acquire connection from pool
+    Pool-->>-DBSession: AsyncSession
+    DBSession-->>-ItemRepo: session context
+    ItemRepo->>ItemRepo: item = ItemModel(...)
+    ItemRepo->>+MySQL: session.add(item)
+    ItemRepo->>MySQL: session.commit()
+    MySQL-->>-ItemRepo: Committed
+    ItemRepo->>+MySQL: session.refresh(item)
+    MySQL-->>-ItemRepo: Item with ID
+    ItemRepo->>Pool: Release connection (context exit)
+    ItemRepo-->>-Container: Return ItemModel
+
+    Note over App,MySQL: Application Shutdown (Lifespan)
+    App->>+Container: shutdown()
+    Container->>+DBSession: disconnect()
+    DBSession->>+Engine: dispose()
+    Engine->>+Pool: Close all connections
+    Pool->>MySQL: Close connections
+    Pool-->>-Engine: Disposed
+    Engine-->>-DBSession: Disconnected
+    DBSession-->>-Container: Disconnected
+    Container-->>-App: Shutdown complete

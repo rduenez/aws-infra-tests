@@ -1,0 +1,55 @@
+%% Network Architecture - VPC, Subnets, and Availability Zones
+%% Shows detailed network architecture including VPC, subnets, route tables, and ENIs
+
+flowchart TB
+    subgraph Region["AWS Region: us-east-1"]
+        subgraph VPC["VPC: crud-app-vpc<br/>CIDR: 10.0.0.0/16<br/>DNS Hostnames: Enabled<br/>DNS Support: Enabled"]
+
+            subgraph AZ1["Availability Zone: us-east-1a"]
+                subgraph PublicSubnet1["Public Subnet 1<br/>CIDR: 10.0.0.0/24<br/>Auto-assign Public IP: Yes"]
+                    ALB_ENI1["ALB ENI<br/>Private IP: 10.0.0.x"]
+                    NAT["NAT Gateway<br/>EIP: x.x.x.x"]
+                    RDS_Primary["RDS Primary<br/>ENI: 10.0.0.x"]
+                end
+
+                subgraph PrivateSubnet1["Private Subnet 1<br/>CIDR: 10.0.10.0/24<br/>Auto-assign Public IP: No"]
+                    ECS_Task1["ECS Task 1 ENI<br/>Private IP: 10.0.10.x"]
+                    Lambda_ENI1["Lambda ENI Pool<br/>10.0.10.x"]
+                end
+            end
+
+            subgraph AZ2["Availability Zone: us-east-1b"]
+                subgraph PublicSubnet2["Public Subnet 2<br/>CIDR: 10.0.1.0/24<br/>Auto-assign Public IP: Yes"]
+                    ALB_ENI2["ALB ENI<br/>Private IP: 10.0.1.x"]
+                    RDS_Standby["RDS Standby ENI<br/>(if Multi-AZ)"]
+                end
+
+                subgraph PrivateSubnet2["Private Subnet 2<br/>CIDR: 10.0.11.0/24<br/>Auto-assign Public IP: No"]
+                    ECS_Task2["ECS Task 2 ENI<br/>Private IP: 10.0.11.x"]
+                    Lambda_ENI2["Lambda ENI Pool<br/>10.0.11.x"]
+                end
+            end
+
+            IGW["Internet Gateway<br/>crud-app-igw"]
+        end
+
+        subgraph RouteTables["Route Tables"]
+            RT_Public["Public Route Table<br/>0.0.0.0/0 → IGW<br/>10.0.0.0/16 → local"]
+            RT_Private["Private Route Table<br/>0.0.0.0/0 → NAT<br/>10.0.0.0/16 → local"]
+        end
+    end
+
+    Internet["Internet<br/>0.0.0.0/0"]
+
+    Internet <-->|"Ingress/Egress"| IGW
+    IGW <--> PublicSubnet1
+    IGW <--> PublicSubnet2
+
+    NAT -->|"Outbound Only"| IGW
+    PrivateSubnet1 -->|"Outbound"| NAT
+    PrivateSubnet2 -->|"Outbound"| NAT
+
+    RT_Public -.->|"Associated"| PublicSubnet1
+    RT_Public -.->|"Associated"| PublicSubnet2
+    RT_Private -.->|"Associated"| PrivateSubnet1
+    RT_Private -.->|"Associated"| PrivateSubnet2

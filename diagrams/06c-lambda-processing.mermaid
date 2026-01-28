@@ -1,0 +1,20 @@
+%% Lambda Function Processing Flow (Direct CRUD Functions)
+
+flowchart LR
+    subgraph Input["Input (Event)"]
+        Body["body: JSON string<br/>{table, data, id}"]
+        QS["queryStringParameters<br/>{table, id}"]
+    end
+
+    subgraph Processing["Lambda Processing"]
+        Parse["Parse Input"]
+        Validate["Validate Data"]
+        BuildSQL["Build SQL Query"]
+        Execute["Execute via pymysql"]
+    end
+
+    subgraph Output["Output"]
+        Response["HTTP Response<br/>{statusCode, headers, body}"]
+    end
+
+    Input --> Parse --> Validate --> BuildSQL --> Execute --> Response

@@ -1,0 +1,43 @@
+%% SQS Message Flow Details
+%% Shows pymysql-based consumer (auto-triggered)
+%% Note: An ORM-based consumer exists but requires manual invocation
+
+sequenceDiagram
+    autonumber
+    participant P as Producer<br/>(FastAPI or Lambda)
+    participant Q as SQS Queue
+    participant L as Lambda Consumer<br/>(pymysql - auto-triggered)
+    participant DB as MySQL
+    participant DLQ as Dead Letter Queue
+
+    Note over P,DLQ: Happy Path - Auto-triggered pymysql Consumer
+    P->>Q: SendMessage<br/>{name, description, price, quantity}
+    Note over Q: Message stored<br/>MessageId generated
+    Q-->>P: MessageId: "abc-123"
+
+    Q->>L: Event Source Mapping triggers<br/>ReceiveMessage (batch of 10)
+    Note over L: Process each record<br/>using pymysql
+    L->>DB: INSERT INTO items (...)
+    DB-->>L: Success
+    Note over Q: Message deleted<br/>automatically on success
+
+    Note over P,DLQ: Failure Path
+    Q->>L: ReceiveMessage
+    L->>DB: INSERT INTO items (...)
+    DB-->>L: Error (e.g., constraint violation)
+    L-->>Q: Throw exception
+    Note over Q: Message becomes<br/>visible after 60s
+
+    loop Retry up to 3 times
+        Q->>L: ReceiveMessage (same message)
+        L->>DB: INSERT (retry)
+        DB-->>L: Error
+        L-->>Q: Throw exception
+    end
+
+    Note over Q: ReceiveCount > 3
+    Q->>DLQ: Move message
+    Note over DLQ: Manual investigation<br/>14 day retention
+
+    Note over P,DLQ: Alternative: ORM Consumer (Manual Only)
+    Note over L: sqs-consumer-orm Lambda uses<br/>SQLAlchemy ORM but is NOT<br/>auto-triggered by SQS

@@ -1,0 +1,25 @@
+%% ECS Service Deployment Configuration
+
+flowchart TB
+    subgraph Deployment["Deployment Configuration"]
+        Strategy["Rolling Update Strategy<br/>Min Healthy: 50%<br/>Max: 200%"]
+
+        subgraph Before["Before Deployment"]
+            Old1["Task v1"]
+            Old2["Task v1"]
+        end
+
+        subgraph During["During Deployment"]
+            Keep1["Task v1 ✓"]
+            New1["Task v2 (starting)"]
+            New2["Task v2 (starting)"]
+        end
+
+        subgraph After["After Deployment"]
+            Final1["Task v2 ✓"]
+            Final2["Task v2 ✓"]
+        end
+    end
+
+    Before -->|"Deploy new version"| During
+    During -->|"Health checks pass"| After

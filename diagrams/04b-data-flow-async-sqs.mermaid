@@ -1,0 +1,39 @@
+%% Data Flow - Asynchronous Create via SQS
+
+sequenceDiagram
+    autonumber
+    participant Client
+    participant ALB as Application Load Balancer
+    participant ECS as ECS Fargate Task
+    participant SQS as SQS Queue<br/>(create-queue)
+    participant Consumer as Lambda SQS Consumer<br/>(Private Subnet)
+    participant RDS as RDS MySQL
+    participant DLQ as Dead Letter Queue
+
+    Note over Client,DLQ: Async CREATE Flow
+
+    Client->>+ALB: POST /queue<br/>{"table": "items", "data": {...}}
+    ALB->>+ECS: Forward request
+    ECS->>ECS: Build SQS message
+    ECS->>+SQS: SendMessage<br/>(via NAT Gateway → AWS API)
+    SQS-->>-ECS: MessageId: "abc-123"
+    ECS-->>-ALB: 202 {"messageId": "abc-123"}
+    ALB-->>-Client: HTTP 202 Accepted
+
+    Note over SQS,RDS: Background Processing
+
+    SQS->>+Consumer: Trigger (batch of messages)
+    Consumer->>Consumer: Parse message body
+    Consumer->>+RDS: INSERT INTO items (...)
+
+    alt Success
+        RDS-->>-Consumer: inserted_id
+        Consumer->>SQS: Delete message from queue
+        Consumer-->>-SQS: Success
+    else Failure (up to 3 retries)
+        Consumer-->>SQS: Throw error (message visible again)
+        SQS->>Consumer: Retry delivery
+    else Max Retries Exceeded
+        SQS->>DLQ: Move to Dead Letter Queue
+        Note over DLQ: Manual investigation required
+    end

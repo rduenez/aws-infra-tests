@@ -1,0 +1,68 @@
+%% FastAPI Clean Architecture with SQLAlchemy ORM
+%% Shows the internal structure of the FastAPI application
+
+flowchart TB
+    subgraph External["External"]
+        Client["HTTP Client"]
+        MySQL[("MySQL Database")]
+        SQS["AWS SQS"]
+    end
+
+    subgraph FastAPI["FastAPI Application (ECS Container)"]
+        subgraph Presentation["Presentation Layer"]
+            Routes["Routes<br/>(items.py, queue.py, health.py)"]
+            DTOs["DTOs<br/>(CreateItemRequest, ItemResponse,<br/>UpdateItemRequest, ItemListResponse)"]
+            DI["Dependency Injection<br/>(Container)"]
+        end
+
+        subgraph Domain["Domain Layer"]
+            Service["ItemService<br/>- create_item()<br/>- get_item()<br/>- get_all_items()<br/>- update_item()<br/>- delete_item()"]
+        end
+
+        subgraph Infrastructure["Infrastructure Layer"]
+            subgraph Database["Database (SQLAlchemy ORM)"]
+                Session["DatabaseSession<br/>- async_sessionmaker<br/>- create_async_engine<br/>- connect() / disconnect()"]
+                Repo["ItemRepository<br/>- create()<br/>- get_by_id()<br/>- get_all()<br/>- update()<br/>- delete()"]
+                Models["ItemModel<br/>(SQLAlchemy ORM Model)<br/>- id, name, description<br/>- price, quantity<br/>- created_at, updated_at"]
+            end
+
+            subgraph Messaging["Messaging"]
+                SQSClient["SQSMessageQueue<br/>- send_message()"]
+            end
+        end
+
+        subgraph Config["Configuration"]
+            Settings["Settings<br/>(Pydantic Settings)<br/>- DB credentials<br/>- AWS config<br/>- App config"]
+        end
+    end
+
+    %% External connections
+    Client -->|"HTTP Request"| Routes
+    Routes -->|"HTTP Response"| Client
+    Session -->|"aiomysql"| MySQL
+    SQSClient -->|"boto3"| SQS
+
+    %% Internal flow
+    Routes --> DTOs
+    Routes --> DI
+    DI --> Service
+    DI --> Repo
+    DI --> SQSClient
+    DI --> Session
+    DI --> Settings
+
+    Service --> Repo
+    Repo --> Session
+    Repo --> Models
+    Session --> Models
+
+    %% Styling
+    classDef presentation fill:#e1f5fe,stroke:#01579b
+    classDef domain fill:#fff3e0,stroke:#e65100
+    classDef infrastructure fill:#e8f5e9,stroke:#1b5e20
+    classDef config fill:#f3e5f5,stroke:#4a148c
+
+    class Routes,DTOs,DI presentation
+    class Service domain
+    class Session,Repo,Models,SQSClient infrastructure
+    class Settings config

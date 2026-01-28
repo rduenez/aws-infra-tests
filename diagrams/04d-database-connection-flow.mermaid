@@ -1,0 +1,34 @@
+%% Database Connection Flow
+%% Shows different connection methods: SQLAlchemy ORM (ECS) vs pymysql (Lambda)
+
+flowchart LR
+    subgraph PrivateSubnet["Private Subnet"]
+        subgraph ECSTask["ECS Task"]
+            ECS["FastAPI Container<br/>10.0.10.x"]
+            SQLAlchemy["SQLAlchemy ORM<br/>+ aiomysql (async)"]
+        end
+        subgraph LambdaFunc["Lambda Functions"]
+            Lambda["Lambda ENI<br/>10.0.10.x"]
+            PyMySQL["pymysql<br/>(sync)"]
+        end
+    end
+
+    subgraph PublicSubnet["Public Subnet"]
+        RDS["RDS MySQL<br/>Private: 10.0.0.x<br/>Public: x.x.x.x"]
+    end
+
+    subgraph Internet["Internet"]
+        DBeaver["DBeaver Client<br/>(MySQL Workbench)"]
+    end
+
+    ECS --> SQLAlchemy
+    SQLAlchemy -->|"Async TCP 3306<br/>Connection Pool<br/>Private IP"| RDS
+
+    Lambda --> PyMySQL
+    PyMySQL -->|"Sync TCP 3306<br/>Single Connection<br/>Private IP"| RDS
+
+    DBeaver -->|"TCP 3306<br/>Public IP"| RDS
+
+    style RDS fill:#f9f,stroke:#333,stroke-width:2px
+    style SQLAlchemy fill:#e8f5e9,stroke:#1b5e20
+    style PyMySQL fill:#fff3e0,stroke:#e65100

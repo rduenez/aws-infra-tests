@@ -1,0 +1,36 @@
+%% ECS Task Definition Details
+
+flowchart LR
+    subgraph TaskDef["Task Definition: crud-app-api"]
+        subgraph Config["Configuration"]
+            CPU["CPU: 256 units<br/>(0.25 vCPU)"]
+            Memory["Memory: 512 MB"]
+            Network["Network Mode: awsvpc"]
+            Compat["Compatibility: FARGATE"]
+        end
+
+        subgraph ContainerDef["Container Definition"]
+            Image["Image: ECR_URL:latest"]
+            Port["Port Mapping:<br/>8000:8000/tcp"]
+            Health["Health Check:<br/>curl localhost:8000/health<br/>Interval: 30s<br/>Timeout: 5s<br/>Retries: 3"]
+
+            subgraph Env["Environment Variables"]
+                DB_HOST["DB_HOST"]
+                DB_PORT["DB_PORT"]
+                DB_NAME["DB_NAME"]
+                DB_USER["DB_USER"]
+                SQS_URL["SQS_QUEUE_URL"]
+                REGION["AWS_REGION"]
+            end
+
+            subgraph Secrets["Secrets (from SSM)"]
+                DB_PASS["DB_PASSWORD"]
+            end
+
+            subgraph Logging["Log Configuration"]
+                LogDriver["Driver: awslogs"]
+                LogGroup["Group: /ecs/crud-app-api"]
+                LogRegion["Region: us-east-1"]
+            end
+        end
+    end

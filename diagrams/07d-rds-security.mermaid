@@ -1,0 +1,24 @@
+%% RDS Security Configuration
+
+flowchart LR
+    subgraph Inbound["Inbound Traffic"]
+        Source1["Your IP<br/>(allowed_ip var)"]
+        Source2["Lambda SG"]
+        Source3["ECS Tasks SG"]
+    end
+
+    subgraph RDSSG["Security Group: crud-app-rds-sg"]
+        Rule1["TCP 3306<br/>from allowed_ip"]
+        Rule2["TCP 3306<br/>from lambda-sg"]
+        Rule3["TCP 3306<br/>from ecs-tasks-sg"]
+    end
+
+    subgraph RDS["RDS Instance"]
+        MySQL["MySQL 8.0<br/>Listening :3306"]
+    end
+
+    Source1 -->|"DBeaver"| Rule1
+    Source2 -->|"Lambda"| Rule2
+    Source3 -->|"ECS"| Rule3
+
+    Rule1 & Rule2 & Rule3 --> MySQL

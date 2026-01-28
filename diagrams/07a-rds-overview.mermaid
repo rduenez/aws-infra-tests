@@ -1,0 +1,28 @@
+%% RDS MySQL Overview
+
+flowchart TB
+    subgraph Region["AWS Region: us-east-1"]
+        subgraph VPC["VPC: crud-app-vpc"]
+            subgraph DBSubnetGroup["DB Subnet Group: crud-app-db-subnet-group"]
+                subgraph AZ1["us-east-1a"]
+                    subgraph PublicSubnet1["Public Subnet 1<br/>10.0.0.0/24"]
+                        RDS["RDS Primary Instance<br/>crud-app-mysql<br/><br/>Engine: MySQL 8.0<br/>Class: db.t3.micro<br/>Storage: 20-100 GB (gp3)<br/>Port: 3306"]
+                    end
+                end
+
+                subgraph AZ2["us-east-1b"]
+                    subgraph PublicSubnet2["Public Subnet 2<br/>10.0.1.0/24"]
+                        StandbyNote["(Standby location<br/>if Multi-AZ enabled)"]
+                    end
+                end
+            end
+        end
+    end
+
+    Internet["Internet<br/>(DBeaver)"]
+    ECS["ECS Tasks"]
+    Lambda["Lambda Functions"]
+
+    Internet -->|"Public Endpoint<br/>TCP 3306"| RDS
+    ECS -->|"Private Network<br/>TCP 3306"| RDS
+    Lambda -->|"Private Network<br/>TCP 3306"| RDS

@@ -1,0 +1,18 @@
+%% Lambda Cold Start Considerations
+
+flowchart TB
+    subgraph ColdStart["Cold Start Process"]
+        A["Request arrives"] --> B["No warm container available"]
+        B --> C["Download code & layer<br/>(~200ms)"]
+        C --> D["Create ENI in VPC<br/>(~5-10s for VPC)"]
+        D --> E["Initialize runtime<br/>(~100ms)"]
+        E --> F["Run init code<br/>(import pymysql)"]
+        F --> G["Execute handler"]
+    end
+
+    subgraph WarmStart["Warm Start Process"]
+        W1["Request arrives"] --> W2["Warm container exists"]
+        W2 --> W3["Execute handler<br/>(~10ms)"]
+    end
+
+    Note1["VPC-enabled Lambdas have<br/>longer cold starts due to<br/>ENI provisioning"]

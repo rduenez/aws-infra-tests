@@ -1,0 +1,25 @@
+%% Data Flow - Lambda Direct CRUD Operations
+
+sequenceDiagram
+    autonumber
+    participant Client
+    participant APIGW as Lambda Function URL<br/>(Public Endpoint)
+    participant Lambda as Lambda Function<br/>(Private Subnet VPC)
+    participant NAT as NAT Gateway
+    participant RDS as RDS MySQL
+
+    Note over Client,RDS: Lambda Direct Database Access
+
+    Client->>+APIGW: POST https://xxx.lambda-url.../
+    APIGW->>+Lambda: Invoke function
+
+    Note over Lambda: Cold Start (if needed):<br/>- Provision ENI in VPC<br/>- Load pymysql layer<br/>- Initialize connection
+
+    Lambda->>Lambda: Parse event body
+    Lambda->>+RDS: SQL Query (via VPC ENI)
+    RDS-->>-Lambda: Query result
+    Lambda->>Lambda: Format response
+    Lambda-->>-APIGW: {"statusCode": 200, "body": "..."}
+    APIGW-->>-Client: HTTP Response
+
+    Note over Lambda,NAT: For SQS/AWS API calls,<br/>Lambda routes through NAT Gateway

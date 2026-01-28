@@ -1,0 +1,39 @@
+%% Lambda Functions Overview
+
+flowchart TB
+    subgraph LambdaFunctions["Lambda Functions"]
+        subgraph DirectCRUD["Direct CRUD Operations (pymysql)"]
+            Create["crud-app-create<br/>Handler: lambda_function.lambda_handler<br/>Runtime: Python 3.11<br/>Memory: 256MB | Timeout: 30s"]
+            Read["crud-app-read<br/>Handler: lambda_function.lambda_handler<br/>Runtime: Python 3.11<br/>Memory: 256MB | Timeout: 30s"]
+            Update["crud-app-update<br/>Handler: lambda_function.lambda_handler<br/>Runtime: Python 3.11<br/>Memory: 256MB | Timeout: 30s"]
+            Delete["crud-app-delete<br/>Handler: lambda_function.lambda_handler<br/>Runtime: Python 3.11<br/>Memory: 256MB | Timeout: 30s"]
+        end
+
+        subgraph SQSFunctions["SQS-Based Operations"]
+            Producer["crud-app-sqs-producer<br/>Handler: lambda_function.lambda_handler<br/>Runtime: Python 3.11<br/>Memory: 128MB | Timeout: 30s"]
+            Consumer["crud-app-sqs-consumer<br/>Handler: lambda_function.lambda_handler<br/>Runtime: Python 3.11<br/>Memory: 256MB | Timeout: 60s<br/>(Auto-triggered by SQS)"]
+        end
+
+        subgraph ORMFunctions["ORM-Based Operations (SQLAlchemy)"]
+            ConsumerORM["crud-app-sqs-consumer-orm<br/>Handler: lambda_function.lambda_handler<br/>Runtime: Python 3.11<br/>Memory: 256MB | Timeout: 60s<br/>(Manual invocation only)"]
+        end
+    end
+
+    subgraph Layers["Lambda Layers"]
+        PyMySQL["crud-app-pymysql-layer<br/>Contains: pymysql<br/>Runtimes: Python 3.11, 3.12"]
+        SQLAlchemy["crud-app-sqlalchemy-layer<br/>Contains: sqlalchemy, pymysql<br/>Runtimes: Python 3.11, 3.12"]
+    end
+
+    subgraph Triggers["Triggers"]
+        URLs["Function URLs<br/>(Public, No Auth)"]
+        SQSTrigger["SQS Event Source<br/>Batch Size: 10"]
+        Manual["Manual / AWS Console<br/>(No auto-trigger)"]
+    end
+
+    Create & Read & Update & Delete --> PyMySQL
+    Consumer --> PyMySQL
+    ConsumerORM --> SQLAlchemy
+
+    URLs --> Create & Read & Update & Delete & Producer
+    SQSTrigger --> Consumer
+    Manual -.-> ConsumerORM

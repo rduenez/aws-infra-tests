@@ -1,0 +1,93 @@
+%% SQLAlchemy ORM Class Diagram
+%% Shows the class structure and relationships
+
+classDiagram
+    class Base {
+        <<DeclarativeBase>>
+        SQLAlchemy Base Class
+    }
+
+    class ItemModel {
+        +int id
+        +str name
+        +str description
+        +Decimal price
+        +int quantity
+        +datetime created_at
+        +datetime updated_at
+        +__repr__() str
+        +to_dict() dict
+    }
+
+    class ItemRepository {
+        -async_sessionmaker _session_factory
+        +__init__(session_factory)
+        +create(name, description, price, quantity) ItemModel
+        +get_by_id(item_id) ItemModel|None
+        +get_all(limit) list~ItemModel~
+        +update(item_id, **kwargs) int
+        +delete(item_id) int
+    }
+
+    class DatabaseSession {
+        -Settings _settings
+        -AsyncEngine _engine
+        -async_sessionmaker _session_factory
+        +__init__(settings)
+        +session_factory() async_sessionmaker
+        +connect() None
+        +disconnect() None
+    }
+
+    class ItemService {
+        -ItemRepository _repository
+        +__init__(repository)
+        +create_item(name, description, price, quantity) ItemModel
+        +get_item(item_id) ItemModel|None
+        +get_all_items(limit) list~ItemModel~
+        +update_item(item_id, name, description, price, quantity) int
+        +delete_item(item_id) int
+    }
+
+    class Container {
+        -Settings _settings
+        -DatabaseSession _db_session
+        -ItemRepository _item_repository
+        -ItemService _item_service
+        -SQSMessageQueue _message_queue
+        +settings() Settings
+        +db_session() DatabaseSession
+        +item_repository() ItemRepository
+        +item_service() ItemService
+        +message_queue() SQSMessageQueue
+        +startup() None
+        +shutdown() None
+    }
+
+    class CreateItemRequest {
+        <<Pydantic>>
+        +str name
+        +str description
+        +float price
+        +int quantity
+    }
+
+    class ItemResponse {
+        <<Pydantic>>
+        +int id
+        +str name
+        +str description
+        +float price
+        +int quantity
+        +datetime created_at
+        +datetime updated_at
+    }
+
+    Base <|-- ItemModel : extends
+    ItemRepository --> ItemModel : creates/queries
+    ItemRepository --> DatabaseSession : uses session_factory
+    ItemService --> ItemRepository : uses
+    Container --> DatabaseSession : creates
+    Container --> ItemRepository : creates
+    Container --> ItemService : creates
+    ItemResponse ..> ItemModel : from_attributes=True

@@ -1,0 +1,27 @@
+%% SQS Error Handling Strategy
+
+flowchart TB
+    subgraph Processing["Message Processing"]
+        Receive["Receive Message"]
+        Parse["Parse Body"]
+        Validate["Validate Data"]
+        Insert["INSERT to Database"]
+        Success["Success"]
+        Failure["Failure"]
+    end
+
+    subgraph ErrorHandling["Error Handling"]
+        Retry["Message returns to queue<br/>after visibility timeout"]
+        MaxRetries{"Receive Count > 3?"}
+        DLQ["Move to DLQ"]
+        Investigate["Manual Investigation"]
+    end
+
+    Receive --> Parse --> Validate --> Insert
+    Insert --> Success
+    Insert --> Failure
+    Failure --> Retry
+    Retry --> MaxRetries
+    MaxRetries -->|Yes| DLQ
+    MaxRetries -->|No| Receive
+    DLQ --> Investigate

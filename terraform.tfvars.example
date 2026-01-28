@@ -1,0 +1,20 @@
+# Copy this file to terraform.tfvars and fill in your values
+# NEVER commit terraform.tfvars to version control
+
+aws_region = "us-east-1"
+
+# Database configuration
+db_name     = "cruddb"
+db_username = "admin"
+db_password = "YourSecurePassword123!"  # Change this!
+
+# Your IP address for database access (find yours at https://whatismyip.com)
+# Use /32 suffix for a single IP, e.g., "203.0.113.50/32"
+# WARNING: 0.0.0.0/0 allows access from anywhere - not recommended for production
+allowed_ip = "0.0.0.0/0"
+
+# Project naming
+project_name = "crud-app"
+
+# RDS instance class (db.t3.micro is free tier eligible)
+db_instance_class = "db.t3.micro"

@@ -1,0 +1,63 @@
+%% Data Flow - Synchronous CRUD Operations (via ECS/FastAPI with SQLAlchemy ORM)
+
+sequenceDiagram
+    autonumber
+    participant Client
+    participant ALB as Application Load Balancer<br/>(Public Subnet)
+    participant FastAPI as FastAPI Routes<br/>(ECS Task)
+    participant Service as ItemService<br/>(Domain Layer)
+    participant Repo as ItemRepository<br/>(SQLAlchemy ORM)
+    participant RDS as RDS MySQL<br/>(Public Subnet)
+
+    Note over Client,RDS: CREATE Operation (POST /items)
+    Client->>+ALB: POST /items<br/>{"name": "Widget", "price": 29.99}
+    ALB->>+FastAPI: Forward request (port 8000)
+    FastAPI->>FastAPI: Validate CreateItemRequest DTO
+    FastAPI->>+Service: create_item(name, description, price, quantity)
+    Service->>+Repo: create(name, description, price, quantity)
+    Repo->>Repo: Create ItemModel instance
+    Repo->>+RDS: session.add(item) → session.commit()
+    RDS-->>-Repo: Return with generated ID
+    Repo->>Repo: session.refresh(item)
+    Repo-->>-Service: Return ItemModel
+    Service-->>-FastAPI: Return ItemModel
+    FastAPI-->>-ALB: 201 CreateItemResponse{id, message}
+    ALB-->>-Client: HTTP 201 Created
+
+    Note over Client,RDS: READ Operation (GET /items/1)
+    Client->>+ALB: GET /items/1
+    ALB->>+FastAPI: Forward request
+    FastAPI->>+Service: get_item(item_id=1)
+    Service->>+Repo: get_by_id(1)
+    Repo->>+RDS: select(ItemModel).where(id == 1)
+    RDS-->>-Repo: Return row data
+    Repo-->>-Service: Return ItemModel or None
+    Service-->>-FastAPI: Return ItemModel
+    FastAPI->>FastAPI: ItemResponse.model_validate(item)
+    FastAPI-->>-ALB: 200 ItemResponse{id, name, price...}
+    ALB-->>-Client: HTTP 200 OK
+
+    Note over Client,RDS: UPDATE Operation (PUT /items/1)
+    Client->>+ALB: PUT /items/1<br/>{"name": "Updated Widget"}
+    ALB->>+FastAPI: Forward request
+    FastAPI->>FastAPI: Validate UpdateItemRequest DTO
+    FastAPI->>+Service: update_item(item_id=1, name="Updated")
+    Service->>+Repo: update(1, name="Updated")
+    Repo->>+RDS: update(ItemModel).where(id == 1).values(...)
+    RDS-->>-Repo: Return rowcount
+    Repo-->>-Service: Return affected_rows
+    Service-->>-FastAPI: Return affected_rows
+    FastAPI-->>-ALB: 200 UpdateItemResponse{affected_rows}
+    ALB-->>-Client: HTTP 200 OK
+
+    Note over Client,RDS: DELETE Operation (DELETE /items/1)
+    Client->>+ALB: DELETE /items/1
+    ALB->>+FastAPI: Forward request
+    FastAPI->>+Service: delete_item(item_id=1)
+    Service->>+Repo: delete(1)
+    Repo->>+RDS: delete(ItemModel).where(id == 1)
+    RDS-->>-Repo: Return rowcount
+    Repo-->>-Service: Return affected_rows
+    Service-->>-FastAPI: Return affected_rows
+    FastAPI-->>-ALB: 200 DeleteItemResponse{affected_rows}
+    ALB-->>-Client: HTTP 200 OK

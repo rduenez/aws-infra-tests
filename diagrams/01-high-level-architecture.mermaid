@@ -1,0 +1,71 @@
+%% High-Level Architecture Overview
+%% Shows the overall architecture of the CRUD application deployed on AWS
+%% FastAPI uses SQLAlchemy ORM for database operations
+
+flowchart TB
+    subgraph Internet["Internet"]
+        User["User/Client<br/>(DBeaver, curl, Browser)"]
+    end
+
+    subgraph AWS["AWS Cloud (us-east-1)"]
+        subgraph PublicAccess["Public Access Layer"]
+            ALB["Application Load Balancer<br/>Port 80/443"]
+            IGW["Internet Gateway"]
+        end
+
+        subgraph ComputeLayer["Compute Layer"]
+            subgraph ECS["ECS Cluster (Fargate)"]
+                Task1["ECS Task 1<br/>FastAPI + SQLAlchemy ORM"]
+                Task2["ECS Task 2<br/>FastAPI + SQLAlchemy ORM"]
+            end
+
+            subgraph LambdaFunctions["Lambda Functions"]
+                subgraph DirectCRUD["Direct CRUD (pymysql)"]
+                    L_Create["Lambda: Create"]
+                    L_Read["Lambda: Read"]
+                    L_Update["Lambda: Update"]
+                    L_Delete["Lambda: Delete"]
+                end
+                subgraph SQSBased["SQS-Based"]
+                    L_Producer["Lambda: SQS Producer"]
+                    L_Consumer["Lambda: SQS Consumer<br/>(pymysql)"]
+                    L_Consumer_ORM["Lambda: SQS Consumer ORM<br/>(SQLAlchemy - Manual)"]
+                end
+            end
+        end
+
+        subgraph MessagingLayer["Messaging Layer"]
+            SQS["SQS Queue<br/>(create-queue)"]
+            DLQ["Dead Letter Queue"]
+        end
+
+        subgraph DataLayer["Data Layer"]
+            RDS[("RDS MySQL 8.0<br/>db.t3.micro<br/>Publicly Accessible")]
+        end
+
+        subgraph NetworkLayer["Network Layer"]
+            NAT["NAT Gateway"]
+            VPC["VPC 10.0.0.0/16"]
+        end
+    end
+
+    User -->|HTTP/HTTPS| ALB
+    User -->|MySQL 3306| IGW
+    IGW --> RDS
+
+    ALB --> Task1
+    ALB --> Task2
+
+    Task1 & Task2 -->|SQLAlchemy ORM| RDS
+    Task1 & Task2 -->|Send Message| SQS
+
+    L_Create & L_Read & L_Update & L_Delete -->|pymysql| RDS
+    L_Producer -->|Send Message| SQS
+    SQS -->|Trigger| L_Consumer
+    L_Consumer -->|pymysql| RDS
+    L_Consumer_ORM -.->|SQLAlchemy ORM<br/>(Manual Invoke)| RDS
+    SQS -->|Failed Messages| DLQ
+
+    ECS --> NAT
+    LambdaFunctions --> NAT
+    NAT --> Internet

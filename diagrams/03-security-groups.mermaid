@@ -1,0 +1,42 @@
+%% Security Groups Architecture
+%% Shows security groups and their inbound/outbound rules controlling traffic flow
+
+flowchart TB
+    subgraph Internet["Internet (0.0.0.0/0)"]
+        Client["Client"]
+        DBeaver["DBeaver"]
+    end
+
+    subgraph SG_ALB["Security Group: crud-app-alb-sg"]
+        direction TB
+        ALB["Application Load Balancer"]
+        ALB_Rules["<b>Inbound Rules:</b><br/>TCP 80 from 0.0.0.0/0<br/>TCP 443 from 0.0.0.0/0<br/><br/><b>Outbound Rules:</b><br/>All traffic to 0.0.0.0/0"]
+    end
+
+    subgraph SG_ECS["Security Group: crud-app-ecs-tasks-sg"]
+        direction TB
+        ECS_Tasks["ECS Fargate Tasks<br/>(FastAPI Containers)"]
+        ECS_Rules["<b>Inbound Rules:</b><br/>TCP 8000 from alb-sg<br/><br/><b>Outbound Rules:</b><br/>All traffic to 0.0.0.0/0"]
+    end
+
+    subgraph SG_Lambda["Security Group: crud-app-lambda-sg"]
+        direction TB
+        Lambda["Lambda Functions"]
+        Lambda_Rules["<b>Inbound Rules:</b><br/>(none required)<br/><br/><b>Outbound Rules:</b><br/>All traffic to 0.0.0.0/0"]
+    end
+
+    subgraph SG_RDS["Security Group: crud-app-rds-sg"]
+        direction TB
+        RDS[("RDS MySQL")]
+        RDS_Rules["<b>Inbound Rules:</b><br/>TCP 3306 from allowed_ip<br/>TCP 3306 from lambda-sg<br/>TCP 3306 from ecs-tasks-sg<br/><br/><b>Outbound Rules:</b><br/>All traffic to 0.0.0.0/0"]
+    end
+
+    Client -->|"HTTP 80/443"| ALB
+    DBeaver -->|"MySQL 3306"| RDS
+
+    ALB -->|"TCP 8000"| ECS_Tasks
+    ECS_Tasks -->|"MySQL 3306"| RDS
+    Lambda -->|"MySQL 3306"| RDS
+
+    ECS_Tasks -->|"HTTPS 443"| SQS["SQS<br/>(via NAT/VPC Endpoint)"]
+    Lambda -->|"HTTPS 443"| SQS

@@ -1,0 +1,120 @@
+%% Complete Infrastructure Diagram
+%% Shows all AWS components and their relationships in a single view
+%% FastAPI uses SQLAlchemy ORM, Lambdas use pymysql (with ORM option)
+
+flowchart TB
+    subgraph Internet["Internet"]
+        User["Users/Clients"]
+        DBeaver["DBeaver<br/>(Database Admin)"]
+    end
+
+    subgraph AWS["AWS Cloud - Region: us-east-1"]
+        subgraph EdgeServices["Edge/Global Services"]
+            R53["Route 53<br/>(DNS Resolution)"]
+        end
+
+        subgraph VPC["VPC: crud-app-vpc (10.0.0.0/16)"]
+            IGW["Internet Gateway"]
+
+            subgraph AZ1["Availability Zone: us-east-1a"]
+                subgraph Public1["Public Subnet<br/>10.0.0.0/24"]
+                    ALB_Node1["ALB Node"]
+                    NAT["NAT Gateway<br/>+ Elastic IP"]
+                    RDS_Primary["RDS Primary"]
+                end
+
+                subgraph Private1["Private Subnet<br/>10.0.10.0/24"]
+                    ECS_Task1["ECS Task 1<br/>FastAPI + SQLAlchemy"]
+                    Lambda_ENI1["Lambda ENIs"]
+                end
+            end
+
+            subgraph AZ2["Availability Zone: us-east-1b"]
+                subgraph Public2["Public Subnet<br/>10.0.1.0/24"]
+                    ALB_Node2["ALB Node"]
+                end
+
+                subgraph Private2["Private Subnet<br/>10.0.11.0/24"]
+                    ECS_Task2["ECS Task 2<br/>FastAPI + SQLAlchemy"]
+                    Lambda_ENI2["Lambda ENIs"]
+                end
+            end
+        end
+
+        subgraph ComputeServices["Compute Services"]
+            subgraph ECS["ECS Cluster"]
+                Service["ECS Service<br/>Desired: 2<br/>SQLAlchemy ORM"]
+            end
+
+            subgraph Lambda["Lambda Functions"]
+                subgraph PyMySQLLambdas["pymysql-based"]
+                    L1["create"]
+                    L2["read"]
+                    L3["update"]
+                    L4["delete"]
+                    L5["sqs-producer"]
+                    L6["sqs-consumer<br/>(SQS triggered)"]
+                end
+                subgraph ORMLambdas["SQLAlchemy-based"]
+                    L7["sqs-consumer-orm<br/>(Manual only)"]
+                end
+            end
+        end
+
+        subgraph Storage["Storage Services"]
+            ECR["ECR Repository<br/>crud-app-api"]
+            SSM["SSM Parameter Store<br/>/crud-app/db/password"]
+        end
+
+        subgraph Messaging["Messaging"]
+            SQS["SQS Queue"]
+            DLQ["Dead Letter Queue"]
+        end
+
+        subgraph Monitoring["Monitoring"]
+            CW["CloudWatch<br/>Logs & Metrics"]
+        end
+
+        subgraph Security["Security"]
+            IAM["IAM Roles<br/>& Policies"]
+            SG["Security Groups"]
+        end
+    end
+
+    %% User connections
+    User -->|"HTTP :80"| IGW
+    DBeaver -->|"MySQL :3306"| IGW
+
+    %% IGW to resources
+    IGW <--> ALB_Node1 & ALB_Node2
+    IGW --> RDS_Primary
+
+    %% ALB to ECS
+    ALB_Node1 & ALB_Node2 -->|":8000"| ECS_Task1 & ECS_Task2
+
+    %% ECS to backend services (SQLAlchemy ORM)
+    ECS_Task1 & ECS_Task2 -->|"SQLAlchemy ORM"| RDS_Primary
+    ECS_Task1 & ECS_Task2 -->|"via NAT"| SQS
+
+    %% Lambda connections (pymysql)
+    Lambda_ENI1 & Lambda_ENI2 --> RDS_Primary
+    Lambda_ENI1 & Lambda_ENI2 -->|"via NAT"| SQS
+    L5 -->|"Direct"| SQS
+    SQS -->|"Trigger"| L6
+    L7 -.->|"Manual"| RDS_Primary
+
+    %% NAT Gateway
+    Private1 & Private2 --> NAT
+    NAT --> IGW
+
+    %% SQS to DLQ
+    SQS -->|"Failed"| DLQ
+
+    %% Supporting services
+    Service --> ECR
+    Service --> SSM
+    Lambda --> CW
+    ECS --> CW
+
+    %% IAM
+    IAM -.-> Lambda & ECS

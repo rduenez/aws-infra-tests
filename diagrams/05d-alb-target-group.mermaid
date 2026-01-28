@@ -1,0 +1,20 @@
+%% ALB Target Group Integration
+
+flowchart LR
+    subgraph ALB["Application Load Balancer"]
+        Listener["Listener :80<br/>Protocol: HTTP"]
+    end
+
+    subgraph TG["Target Group: crud-app-api-tg"]
+        TGConfig["Type: IP<br/>Protocol: HTTP<br/>Port: 8000<br/>VPC: crud-app-vpc"]
+
+        HealthCheck["Health Check<br/>Path: /health<br/>Interval: 30s<br/>Healthy: 2<br/>Unhealthy: 3<br/>Matcher: 200"]
+    end
+
+    subgraph Targets["Registered Targets"]
+        IP1["10.0.10.x:8000<br/>healthy"]
+        IP2["10.0.11.x:8000<br/>healthy"]
+    end
+
+    Listener --> TG
+    TG --> IP1 & IP2

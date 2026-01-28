@@ -1,0 +1,33 @@
+%% RDS Connection Patterns
+%% Shows different database access patterns for each component
+
+flowchart TB
+    subgraph PublicAccess["Public Access (Database Admin)"]
+        DBeaver["DBeaver / MySQL Workbench<br/>Your IP: x.x.x.x"]
+
+        DBeaver -->|"1. DNS Lookup"| DNS["Route 53 (AWS DNS)"]
+        DNS -->|"2. Returns Public IP"| DBeaver
+        DBeaver -->|"3. TCP 3306<br/>via Internet"| IGW["Internet Gateway"]
+        IGW -->|"4. Route to RDS"| RDS_Pub["RDS Public Endpoint"]
+    end
+
+    subgraph PrivateAccess["Private Access (Application)"]
+        subgraph ECSAccess["ECS (SQLAlchemy ORM)"]
+            ECS["ECS Task<br/>10.0.10.x"]
+            ORM["SQLAlchemy 2.0<br/>+ aiomysql driver<br/>Async connection pool"]
+        end
+
+        subgraph LambdaAccess["Lambda (pymysql)"]
+            Lambda["Lambda<br/>10.0.10.x"]
+            Raw["pymysql<br/>Sync single connection"]
+        end
+
+        ECS --> ORM
+        Lambda --> Raw
+        ORM & Raw -->|"Direct VPC routing<br/>No internet traversal"| RDS_Priv["RDS Private IP<br/>10.0.0.x"]
+    end
+
+    RDS_Pub & RDS_Priv --> RDS["RDS Instance<br/>MySQL 8.0"]
+
+    style ORM fill:#e8f5e9,stroke:#1b5e20
+    style Raw fill:#fff3e0,stroke:#e65100

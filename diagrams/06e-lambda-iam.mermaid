@@ -1,0 +1,20 @@
+%% Lambda IAM Role Configuration
+
+flowchart TB
+    subgraph Role["IAM Role: crud-app-lambda-role"]
+        subgraph Policies["Attached Policies"]
+            Basic["AWSLambdaBasicExecutionRole<br/>- logs:CreateLogGroup<br/>- logs:CreateLogStream<br/>- logs:PutLogEvents"]
+            VPC["AWSLambdaVPCAccessExecutionRole<br/>- ec2:CreateNetworkInterface<br/>- ec2:DescribeNetworkInterfaces<br/>- ec2:DeleteNetworkInterface"]
+            Custom["Custom SQS Policy<br/>- sqs:SendMessage<br/>- sqs:ReceiveMessage<br/>- sqs:DeleteMessage<br/>- sqs:GetQueueAttributes"]
+        end
+    end
+
+    subgraph Resources["Resource Access"]
+        CW["CloudWatch Logs"]
+        EC2["EC2 (ENIs)"]
+        Queue["SQS Queues<br/>- create-queue<br/>- create-dlq"]
+    end
+
+    Basic --> CW
+    VPC --> EC2
+    Custom --> Queue
